@@ -1,41 +1,36 @@
-﻿using System.Drawing.Drawing2D;
-using System.Numerics;
+﻿using System.Numerics;
 using CarRace.Utils;
 
 namespace CarRace.Models;
 
 public class OvalModel
 {
-    private readonly Graphics g;
-    private readonly Bitmap map;
-    Pen trackPen = new Pen(Color.Red, 1);
-    private readonly List<TrackPart> track;
+    private readonly Graphics _g;
+    private readonly Bitmap _map;
+    private Pen _trackPen = new Pen(Color.Red, 1);
+    private readonly List<Point> _track;
     public Point StartPoint { get; set; } = new Point(190, 100);
     public Point VectorPoint { get; set; } = new Point(195, 100);
 
     public OvalModel()
     {
-        map = new Bitmap(1000, 1000);
-        g = Graphics.FromImage(map);
+        _map = new Bitmap(1000, 1000);
+        _g = Graphics.FromImage(_map);
         DrawBasicTrack();
-        var pixels = GraphicsUtils.GetBitmapAsColor(map);
-        var trackPoints = ReadOnlyTrackPoints(pixels, trackPen.Color);
-        track = AnalyzeTrack(trackPoints,StartPoint , VectorPoint);
-        
-        // g.DrawLines(Pens.Blue, track.ToArray());
-        
-        // g.FillRectangle(Brushes.Green, 100,100,20,10);
+        var pixels = GraphicsUtils.GetBitmapAsColor(_map);
+        var trackPoints = ReadOnlyTrackPoints(pixels, _trackPen.Color);
+        _track = AnalyzeTrack(trackPoints,StartPoint , VectorPoint);
     }
 
     private void DrawBasicTrack()
     {
-        g.DrawArc(trackPen, 100, 100, 200, 200, -90, -180);
-        g.DrawLine(trackPen, 200, 100, 400, 100);
-        g.DrawLine(trackPen, 200, 300, 400, 300);
-        g.DrawArc(trackPen, 300, 100, 200, 200, -90, 90);
-        g.DrawLine(trackPen, 500, 200, 500, 500);
-        g.DrawArc(trackPen, 400, 500, 200, 200, -90, 270);
-        g.DrawLine(trackPen, 400, 600, 400, 300);
+        _g.DrawArc(_trackPen, 100, 100, 200, 200, -90, -180);
+        _g.DrawLine(_trackPen, 200, 100, 400, 100);
+        _g.DrawLine(_trackPen, 200, 300, 400, 300);
+        _g.DrawArc(_trackPen, 300, 100, 200, 200, -90, 90);
+        _g.DrawLine(_trackPen, 500, 200, 500, 500);
+        _g.DrawArc(_trackPen, 400, 500, 200, 200, -90, 270);
+        _g.DrawLine(_trackPen, 400, 600, 400, 300);
     }
 
     private bool[,] ReadOnlyTrackPoints(Color[,] pixels, Color trackColor)
@@ -55,36 +50,25 @@ public class OvalModel
         return points;
     }
 
-    private List<TrackPart> AnalyzeTrack(bool[,] trackPoints, Point startPoint, Point vectorPoint)
+    private List<Point> AnalyzeTrack(bool[,] trackPoints, Point startPoint, Point vectorPoint)
     {
-        var track = new List<TrackPart>();
-        track.Add(new TrackPart(){Point = startPoint, Angle = 0});
+        var track = new List<Point>();
+        track.Add(startPoint);
 
         Point currentPoint = startPoint;
         Vector2 currentDirection = new Vector2(vectorPoint.X - startPoint.X, -(vectorPoint.Y - startPoint.Y));
-        double currentAngle = 0;
         while (true)
         {
             var searchedPoints = GetPointsAroundPoint3(currentPoint);
             var trackSigns = new List<Point>();
-            foreach (var point in searchedPoints)
-            {
-                if (trackPoints[point.X, point.Y])
-                {
-                    trackSigns.Add(point);
-                }
-            }
+            IdentifyPotentialNextTrackPoints(trackPoints, searchedPoints, trackSigns);
 
             Double smallestAngle = 360;
             Point nextPoint = currentPoint;
             Vector2 nextDirection = currentDirection;
             foreach (var point in trackSigns)
             {
-                var direction = new Vector2(point.X - currentPoint.X, -(point.Y - currentPoint.Y));
-                double scalar = Vector2.Dot(currentDirection, direction);
-                double lengths = currentDirection.Length() * direction.Length();
-                var a = Math.Round(scalar / lengths, 3);
-                var angle = Math.Acos(a)*(180.0/Math.PI);
+                var direction = CalculateAngleBetweenVectors(point, currentPoint, currentDirection, out var angle);
 
                 if (angle < smallestAngle)
                 {
@@ -95,19 +79,40 @@ public class OvalModel
             }
             currentPoint = nextPoint;
             currentDirection = nextDirection;
-            currentAngle += smallestAngle;
-            if (track.Any(x => x.Point.X == nextPoint.X && x.Point.Y == nextPoint.Y))
+            if (track.Any(x => x.X == nextPoint.X && x.Y == nextPoint.Y))
                 break;
-            track.Add(new TrackPart(){Point = currentPoint, Angle = currentAngle});
+            track.Add(currentPoint);
             
         }
 
-        return track.ToList();
+        return track;
+    }
+
+    private static Vector2 CalculateAngleBetweenVectors(Point point, Point currentPoint, Vector2 currentDirection,
+        out double angle)
+    {
+        var direction = new Vector2(point.X - currentPoint.X, -(point.Y - currentPoint.Y));
+        double scalar = Vector2.Dot(currentDirection, direction);
+        double lengths = currentDirection.Length() * direction.Length();
+        var a = Math.Round(scalar / lengths, 3);
+        angle = Math.Acos(a)*(180.0/Math.PI);
+        return direction;
+    }
+
+    private static void IdentifyPotentialNextTrackPoints(bool[,] trackPoints, List<Point> searchedPoints, List<Point> trackSigns)
+    {
+        foreach (var point in searchedPoints)
+        {
+            if (trackPoints[point.X, point.Y])
+            {
+                trackSigns.Add(point);
+            }
+        }
     }
 
     public Bitmap GetTrackBitmap()
     {
-        return map;
+        return _map;
     }
 
     private List<Point> GetPointsAroundPoint3(Point point)
@@ -152,8 +157,8 @@ public class OvalModel
         return points;
     }
 
-    public List<TrackPart> GetTrack()
+    public List<Point> GetTrack()
     {
-        return track;
+        return _track;
     }
 }

@@ -19,51 +19,76 @@ public partial class Form1 : Form
     {
         //prepare data
         mainloop.Interval = 10;
-        mainloop.Start();
     }
 
-    private TrackPart _currentPoint;
-    private TrackPart _nextPoint;
-    private int index = 0;
 
     private void mainloop_Tick(object sender, EventArgs e)
     {
-        var track = _ovalModel.GetTrack();
-        _currentPoint = track[index];
-        if (index + 1 == track.Count)
-            index = -1;
-
-
-        _nextPoint = track[index + 1];
-
+        _speed = _tbSpeedControl.Value;
+        _lblSpeed.Text = _speed.ToString()+"x";
+        
+        SetupPoint();
+        CountDrivenDistance();
         Invalidate();
-        index++;
+    }
+
+    private Point _currentPoint;
+    private Point _nextPoint;
+    private int _index = 0;
+    private int _speed = 1;
+
+    private void SetupPoint()
+    {
+        var track = _ovalModel.GetTrack();
+        _currentPoint = track[_index];
+        if (_index + _speed >= track.Count)
+        {
+            _index = _index+_speed-track.Count ;
+        }
+        else
+        {
+            _index += _speed;
+        }
+        _nextPoint = track[_index];
+    }
+
+    private void CountDrivenDistance()
+    {
+        var step = new Vector2(_nextPoint.X - _currentPoint.X, _nextPoint.Y - _currentPoint.Y);
+        _distance += Math.Round(step.Length(), 0);
+        _lblAngle.Text = $"Driven distance: {_distance}";
     }
 
 
     private const int CAR_SIZE = 20;
+    private double _distance = 0;
 
     private void Oval_Paint(object sender, PaintEventArgs e)
     {
-        if (_currentPoint == null)
-            return;
-        // var defaultDirection = new Vector2(_ovalModel.VectorPoint.X - _ovalModel.StartPoint.X, -(_ovalModel.VectorPoint.Y - _ovalModel.StartPoint.Y));
-        // var direction = new Vector2(_nextPoint.Point.X - _currentPoint.Point.X, -(_nextPoint.Point.Y - _currentPoint.Point.Y));
-        // double scalar = Vector2.Dot(defaultDirection, direction);
-        // double lengths = defaultDirection.Length() * direction.Length();
-        // var a = Math.Round(scalar / lengths, 3);
-        // var angle = Math.Acos(a)*(180.0/Math.PI);
-        // _lblAngle.Text = "Angle: " + angle.ToString();
-        
         var g = e.Graphics;
         g.DrawImage(_ovalModel.GetTrackBitmap(), new Point(0, 0));
-        // var xTranslate = _currentPoint.Point.X + CAR_WIDTH / 2;
-        // var yTranslate = _currentPoint.Point.Y + CAR_HEIGHT / 2;
-        // g.TranslateTransform(xTranslate, yTranslate);
-        // g.RotateTransform((float)angle);
-        // g.TranslateTransform(-xTranslate, -yTranslate);
+        if (_currentPoint == null)
+            return;
 
-        g.FillPie(Brushes.Green, _currentPoint.Point.X-CAR_SIZE/2, _currentPoint.Point.Y-CAR_SIZE/2, CAR_SIZE, CAR_SIZE, 0, 360);
-        g.ResetTransform();
+        g.FillPie(Brushes.Green, _currentPoint.X - CAR_SIZE / 2, _currentPoint.Y - CAR_SIZE / 2, CAR_SIZE,
+            CAR_SIZE, 0, 360);
+    }
+
+    private bool _run = false;
+
+    private void _btnToggleRun_MouseDown(object sender, MouseEventArgs e)
+    {
+        if (_run)
+        {
+            _run = false;
+            _btnToggleRun.Text = "Start";
+            mainloop.Stop();
+        }
+        else
+        {
+            _run = true;
+            _btnToggleRun.Text = "Stop";
+            mainloop.Start();
+        }
     }
 }
